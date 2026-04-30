@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 import bleach
+from src.schemas import UserCreate
 import os
 from dotenv import load_dotenv
 import sys
