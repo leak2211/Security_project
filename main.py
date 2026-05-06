@@ -42,11 +42,18 @@ async def delete_file(
 async def get_my_files(
     current_user: User = Depends(get_current_user_from_header)
 ):
-
-    user_files = [
-        file for file in files_db.values()
-        if file.owner_id == current_user.id
-    ]
+    user_files = []
+    for file in files_db.values():
+        if file.owner_id == current_user.id:
+            user_files.append({
+                "id": file.id,
+                "name": file.name,
+                "size": file.size,
+                "owner_id": file.owner_id,
+                "owner_name": file.owner_name,
+                "created_at": file.created_at,
+                "content_type": file.content_type
+            })
     
     return {
         "user": current_user.username,
@@ -59,18 +66,30 @@ async def get_my_files(
 async def get_all_files(
     current_user: User = Depends(get_current_user_from_header)
 ):
-
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
     
+    all_files = []
+    for file in files_db.values():
+        all_files.append({
+            "id": file.id,
+            "name": file.name,
+            "size": file.size,
+            "owner_id": file.owner_id,
+            "owner_name": file.owner_name,
+            "created_at": file.created_at,
+            "content_type": file.content_type
+        })
+    
     return {
         "admin": current_user.username,
-        "files": list(files_db.values()),
+        "files": all_files,
         "count": len(files_db)
     }
+
 
 @app.get("/users/me")
 async def get_current_user_info(
