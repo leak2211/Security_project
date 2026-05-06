@@ -1,92 +1,106 @@
-from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-import bleach
-from src.schemas import UserCreate
-import os
-from dotenv import load_dotenv
-import sys
+from fastapi.responses import JSONResponse
+from typing import List
+from src.database import files_db, users_db, File, User
+from src.auth import (
+    get_current_user_from_header,
+    check_file_read_permission,
+    check_file_delete_permission
+)
 
-load_dotenv()
-
-secret = os.getenv('APP_SECRET')
-
-if secret is None:
-    print("Ошибка: Переменная окружения APP_SECRET не найдена!")
-    sys.exit(1)
-
-print(f"System started. Secret hash: {secret[:3]}***")
-
-app = FastAPI(title="Registration with Comments")
+app = FastAPI(
+    title="Corporate File Manager - Security",
+    description="File manager with RBAC protection",
+    version="2.0.0"
+)
 
 templates = Jinja2Templates(directory="templates")
 
-comments_storage = []
+@app.get("/files/{file_id}", response_model=File)
+async def get_file(
+    file: File = Depends(check_file_read_permission)
+):
 
-ALLOWED_TAGS = ['b', 'i', 'u', 'em', 'strong']
-ALLOWED_ATTRIBUTES = {} 
+    return file
 
-def sanitize_text(text: str) -> str:
-    """
-    Очистка текста от опасных тегов и атрибутов.
-    Разрешены только теги: b, i, u, em, strong
-    """
-    if not text:
-        return ""
+@app.delete("/files/{file_id}")
+async def delete_file(
+    file: File = Depends(check_file_delete_permission)
+):
+
+    file_id = file.id
+    del files_db[file_id]
     
-    cleaned = bleach.clean(
-        text,
-        tags=ALLOWED_TAGS,
-        attributes=ALLOWED_ATTRIBUTES,
-        strip=True  
-    )
-    
-    return cleaned
-
-class CSPMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self'; "
-            "img-src 'self' data:; "
-            "font-src 'self'; "
-            "connect-src 'self'"
-        )
-        return response
-
-app.add_middleware(CSPMiddleware)
-
-@app.get("/comments", response_class=HTMLResponse)
-async def get_comments(request: Request):
-    """Отображение страницы с комментариями"""
-    return templates.TemplateResponse(
-        "comments.html", 
-        {"request": request, "comments": comments_storage}
-    )
-
-@app.post("/comments")
-async def post_comment(comment_text: str = Form(...)):
-    """Обработка POST запроса с комментарием"""
-    if not comment_text or len(comment_text.strip()) == 0:
-        raise HTTPException(status_code=400, detail="Comment cannot be empty")
-    
-    cleaned_comment = sanitize_text(comment_text)
-    
-    comments_storage.append(cleaned_comment)
-    
-    return RedirectResponse(url="/comments", status_code=303)
-@app.post("/registration")
-async def register(user: UserCreate):
     return {
-        "msg": "User created",
-        "user": user.username,
-        "email": user.email
+        "msg": "File deleted successfully",
+        "file_id": file_id,
+        "file_name": file.name
     }
+
+@app.get("/files/my")
+async def get_my_files(
+    current_user: User = Depends(get_current_user_from_header)
+):
+
+    user_files = [
+        file for file in files_db.values()
+        if file.owner_id == current_user.id
+    ]
+    
+    return {
+        "user": current_user.username,
+        "role": current_user.role,
+        "files": user_files,
+        "count": len(user_files)
+    }
+
+@app.get("/files/all")
+async def get_all_files(
+    current_user: User = Depends(get_current_user_from_header)
+):
+
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
+    return {
+        "admin": current_user.username,
+        "files": list(files_db.values()),
+        "count": len(files_db)
+    }
+
+@app.get("/users/me")
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user_from_header)
+):
+
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "role": current_user.role
+    }
+
+
+@app.get("/comments")
+async def show_comments():
+    return {"message": "Comments page - see task 6"}
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/docs")
+    return {
+        "message": "Corporate File Manager",
+        "endpoints": {
+            "GET /files/{{file_id}}": "Get file info",
+            "DELETE /files/{{file_id}}": "Delete file",
+            "GET /files/my": "List my files",
+            "GET /files/all": "List all files (admin only)",
+            "GET /users/me": "Current user info",
+            "GET /docs": "API Documentation"
+        },
+        "users": list(users_db.keys()),
+        "files_count": len(files_db)
+    }
