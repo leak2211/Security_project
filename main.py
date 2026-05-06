@@ -95,10 +95,10 @@ async def root():
     return {
         "message": "Corporate File Manager",
         "endpoints": {
-            "GET /files/{file_id}": "Get file info",
-            "DELETE /files/{file_id}": "Delete file",
             "GET /files/my": "List my files",
             "GET /files/all": "List all files (admin only)",
+            "GET /files/{file_id}": "Get file info",
+            "DELETE /files/{file_id}": "Delete file",
             "GET /users/me": "Current user info",
             "GET /docs": "API Documentation"
         },
