@@ -89,13 +89,14 @@ async def get_current_user_info(
 async def show_comments():
     return {"message": "Comments page - see task 6"}
 
+
 @app.get("/")
 async def root():
     return {
         "message": "Corporate File Manager",
         "endpoints": {
-            "GET /files/{{file_id}}": "Get file info",
-            "DELETE /files/{{file_id}}": "Delete file",
+            "GET /files/{file_id}": "Get file info",
+            "DELETE /files/{file_id}": "Delete file",
             "GET /files/my": "List my files",
             "GET /files/all": "List all files (admin only)",
             "GET /users/me": "Current user info",
