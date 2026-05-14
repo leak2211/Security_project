@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 from typing import List
-from src.database import files_db, users_db, File, User
+from src.database import files_db, users_db, File, User, init_database
 from src.auth import (
     get_current_user_from_header,
     check_file_read_permission,
@@ -15,28 +15,10 @@ app = FastAPI(
     version="2.0.0"
 )
 
+# Initialize database
+init_database()
+
 templates = Jinja2Templates(directory="templates")
-
-@app.get("/files/{file_id}", response_model=File)
-async def get_file(
-    file: File = Depends(check_file_read_permission)
-):
-
-    return file
-
-@app.delete("/files/{file_id}")
-async def delete_file(
-    file: File = Depends(check_file_delete_permission)
-):
-
-    file_id = file.id
-    del files_db[file_id]
-    
-    return {
-        "msg": "File deleted successfully",
-        "file_id": file_id,
-        "file_name": file.name
-    }
 
 @app.get("/files/my")
 async def get_my_files(
@@ -88,6 +70,27 @@ async def get_all_files(
         "admin": current_user.username,
         "files": all_files,
         "count": len(files_db)
+    }
+
+@app.get("/files/{file_id}", response_model=File)
+async def get_file(
+    file: File = Depends(check_file_read_permission)
+):
+
+    return file
+
+@app.delete("/files/{file_id}")
+async def delete_file(
+    file: File = Depends(check_file_delete_permission)
+):
+
+    file_id = file.id
+    del files_db[file_id]
+    
+    return {
+        "msg": "File deleted successfully",
+        "file_id": file_id,
+        "file_name": file.name
     }
 
 
