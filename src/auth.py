@@ -1,18 +1,9 @@
 from fastapi import HTTPException, Depends, status, Header
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasic
 from typing import Optional
 from src.database import users_db, files_db, User, File
 
 security = HTTPBasic()
-
-def get_current_user(user_id: str = None) -> User:
-    if not user_id or user_id not in users_db:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return users_db[user_id]
 
 async def get_current_user_from_header(
     x_user_id: Optional[str] = Header(None, alias="X-User-Id")
